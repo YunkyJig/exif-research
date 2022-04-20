@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Exif Research</title>
+</head>
+<body>
+    <input type="file" id="files" />
+    <span>tags(press enter to add a new one):</span>
+    <input type="text" class="tag" />
+    <script src="piexif.js"></script>
+    <script>
+        function handleFileSelect(evt) {
+            var file = evt.target.files[0];
+
+            // regular windows tags are ImageIFDs 34665(ExifTag)
+            // actually could be 40094(XPKeywords)
+            var zeroth = {};
+            var exif = {};
+            var gps = {};
+            zeroth[piexif.ImageIFD.Make] = "Make";
+            zeroth[piexif.ImageIFD.XPKeywords] = getTags()
+            zeroth[piexif.ImageIFD.XResolution] = [777, 1];
+            zeroth[piexif.ImageIFD.YResolution] = [777, 1];
+            zeroth[piexif.ImageIFD.Software] = "Piexifjs";
+            exif[piexif.ExifIFD.DateTimeOriginal] = "2010:10:10 10:10:10";
+            exif[piexif.ExifIFD.LensMake] = "LensMake";
+            exif[piexif.ExifIFD.Sharpness] = 777;
+            exif[piexif.ExifIFD.LensSpecification] = [[1, 1], [1, 1], [1, 1], [1, 1]];
+            gps[piexif.GPSIFD.GPSVersionID] = [7, 7, 7, 7];
+            gps[piexif.GPSIFD.GPSDateStamp] = "1999:99:99 99:99:99";
+            var exifObj = {"0th":zeroth, "Exif":exif, "GPS":gps};
+            var exifStr = piexif.dump(exifObj);
+
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                // console.log(piexif.load(e.target.result))
+                // const load = piexif.load(e.target.result)
+
+                // load['0th'][40094].forEach(charCode => {
+                //     if(charCode !== 0) {
+                //         // 59 is ;
+                //         console.log(String.fromCharCode(charCode), charCode)
+                //     }
+                // })
+                var inserted = piexif.insert(exifStr, e.target.result);
+
+                var image = new Image();
+                image.src = inserted;
+                image.width = 200;
+                var divvy = document.createElement('div')
+                var body = document.getElementsByTagName('body')[0]
+                divvy.append(image)
+                body.append(divvy)
+            };
+            reader.readAsDataURL(file);
+        }
+
+        document.getElementById('files').addEventListener('change', handleFileSelect, false);
+        document.getElementsByClassName('tag')[0].addEventListener('keyup', addTag)
+
+        function addTag({ key }) {
+            if(key === 'Enter') {
+                let newTag = document.createElement('input')
+                newTag.type = 'text'
+                newTag.className = 'tag'
+                newTag.addEventListener('keyup', addTag)
+
+                var body = document.getElementsByTagName('body')[0]
+                body.append(newTag)
+
+                newTag.focus()
+            }
+        }
+
+        function getTags() {
+            let tagInputs = [...document.getElementsByClassName('tag')]
+            let tagVals = []
+
+            tagInputs = tagInputs.filter(input => input.value !== '')
+
+            tagInputs.forEach((input, index)=> {
+                const tagVal = input.value
+
+                for(let i = 0; i < tagVal.length; ++i) {
+                    // console.log(tagVal[i], tagVal.at(i))
+                    tagVals.push(tagVal.at(i).charCodeAt(0))
+                    tagVals.push(0)
+                }
+
+                console.log('index', index, tagInputs.length)
+                if(index === tagInputs.length - 1) {
+                    // need to have 3 zeros at the end of the byte array
+                    tagVals.push(0)
+                    tagVals.push(0)
+                }
+                else {
+                    // pushing ';'. needed to separate tags
+                    tagVals.push(59)
+                    tagVals.push(0)
+                }                
+            })
+
+            console.log(tagVals)
+            return tagVals
+        }
+    </script>
+</body>
+</html>
